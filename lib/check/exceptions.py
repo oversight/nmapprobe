@@ -1,0 +1,2 @@
+class UnresolvableException(Exception):
+    pass
