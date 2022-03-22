@@ -5,7 +5,6 @@ from .base import Base
 
 
 class CheckPorts(Base):
-
     required = True
     type_name = 'port'
 

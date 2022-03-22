@@ -7,7 +7,6 @@ from .utils import get_ts_from_time_str, get_ts_utc_now
 
 
 class CheckCertificates(Base):
-
     required = False
 
     @staticmethod
