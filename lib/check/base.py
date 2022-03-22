@@ -2,6 +2,8 @@ import asyncio
 import logging
 import os
 
+from .ports import DEFAULT_SSL_PORTS
+
 DEFAULT_MAX_WORKERS = (os.cpu_count() or 1) * 5
 SEMAPHORE = asyncio.Semaphore(value=DEFAULT_MAX_WORKERS)
 
@@ -18,7 +20,10 @@ class Base:
             # asset_id = data['hostUuid']
             config = data['hostConfig']['probeConfig']['wmiProbe']
             ip4 = config['ip4']
-            ports = config.get('checkCertificatePorts', None)
+            check_certificate_ports = config.get(
+                'checkCertificatePorts',
+                DEFAULT_SSL_PORTS)
+            check_ports = config.get('checkPorts', None)
             interval = data.get('checkConfig', {}).get('metaConfig', {}).get(
                 'checkInterval')
             assert interval is None or isinstance(interval, int)
@@ -26,37 +31,55 @@ class Base:
             logging.error('invalid check configuration')
             return
 
-        max_runtime = .8 * (interval or cls.interval)  # TODO ?
+        async with SEMAPHORE:
+            max_runtime = 60  # 60 seconds
+            try:
+                state_data = await asyncio.wait_for(
+                    cls.get_data(
+                        ip4,
+                        check_certificate_ports=check_certificate_ports,
+                        check_ports=check_ports
+                    ),
+                    timeout=max_runtime
+                )
+            except asyncio.TimeoutError:
+                raise Exception('Check timed out.')
+            except Exception as e:
+                raise Exception(f'Check error: {e.__class__.__name__}: {e}')
+            else:
+                return state_data
+
+    @classmethod
+    async def get_data(cls, *args, **kwargs):
+        data = {}
         try:
-            state_data = await asyncio.wait_for(
-                cls.get_data(ip4, ports),
-                timeout=max_runtime
+            data = await cls.run_check(*args, **kwargs)
+            print("DATA", data)
+        except Exception as err:
+            logging.exception(f'NMAP error: `{err}`\n')
+            raise
+
+        return data
+
+    @staticmethod
+    async def run_cmd(params):
+        process = await asyncio.create_subprocess_exec(
+            *params,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        stdout, stderr = await process.communicate()
+
+        if process.returncode != 0:  # TODO err msg?
+            raise Exception(
+                "Failed: %s, pid=%s, result: %s"
+                % (params, process.pid, stderr.decode().strip()),
+                flush=True,
             )
-        except asyncio.TimeoutError:
-            raise Exception('Check timed out.')
-        except Exception as e:
-            raise Exception(f'Check error: {e.__class__.__name__}: {e}')
-        else:
-            return state_data
 
-    @classmethod
-    async def get_data(cls, ip4, ports):
-        pass
+        return stdout
 
     @staticmethod
-    async def run_check(ip4, ports):
+    async def run_check(*args, **kwargs):
         pass
-
-    @staticmethod
-    def on_item(itm):
-        return itm
-
-    @classmethod
-    def get_result(cls, data):
-        itm = cls.on_item(data)
-        state = {}
-        state[cls.type_name] = {}
-        name = itm['name']
-        state[cls.type_name][name] = itm
-        return state
-

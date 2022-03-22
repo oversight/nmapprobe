@@ -1,45 +1,15 @@
-from distutils.log import error
 import subprocess
 import xml.etree.ElementTree as ET
-import asyncio
-import logging
-import time
 
-from .base import Base, SEMAPHORE
-from .exceptions import UnresolvableException
-from .utils import check_response
 from datetime import datetime
-from typing import List
+
+from .base import Base
+from .exceptions import UnresolvableException
 
 
-def cert_props_to_dict(node, query, prefix):
-    return {
-        prefix + elem.attrib['key']: elem.text for elem in node.findall(query)
-    }
-
-
-HTTPS = 443
-POP3_SSL = 995
-IMAP_SSL = 993
-SMTP_SSL = 465
-RDP_SSL = 3389
-FTP_SSL_A = 989
-FTP_SSL_B = 990
-LDAP_SLL = 636
-WINRM_SSL = 5986
-
-
-KNOWN_SSL_PORTS = (
-    HTTPS,
-    POP3_SSL,
-    IMAP_SSL,
-    SMTP_SSL,
-    RDP_SSL,
-    FTP_SSL_A,
-    FTP_SSL_B,
-    LDAP_SLL,
-    WINRM_SSL
-)
+def get_ts_from_time_str(time_str):
+    #  TODO UTC?
+    return int(datetime.strptime(time_str,  '%Y-%m-%dT%H:%M:%S').timestamp())
 
 
 class CheckCertificates(Base):
@@ -49,18 +19,7 @@ class CheckCertificates(Base):
     type_name = 'certificates'
 
     @staticmethod
-    def on_item(itm):
-        return {
-            'name': itm.name,  # (str)
-        }
-
-    @staticmethod
-    def _parse_cert_info(node):
-        '''
-        Parse certificate header info
-        :param node: Element with certificate info
-        :return: dict of certificate info
-        '''
+    def _parse_cert_info(node, host, port):
         if not node:
             return {}
 
@@ -75,11 +34,19 @@ class CheckCertificates(Base):
                     raise Exception(f'unable to find {pth}')
             return nod.text
 
-        not_after = datetime.strptime(
-            get_text('validity', 'notAfter')[:19],
-            '%Y-%m-%dT%H:%M:%S'
-        )
-        dct = {
+        not_before = get_ts_from_time_str(
+            get_text('validity', 'notBefore')[:19])
+        not_after = get_ts_from_time_str(
+            get_text('validity', 'notAfter')[:19])
+
+        now = int(datetime.now().timestamp())
+        is_valid = not_before <= now <= not_after
+        expires_in = not_after - now
+
+        response_data = {}
+        name = f'{host}:{port}'
+        response_data[name] = {
+            'name': name,
             'subject': '/'.join(map(
                 lambda elem: f'{elem.attrib["key"]}={elem.text}',
                 node.findall("table[@key='subject']/elem")
@@ -88,44 +55,22 @@ class CheckCertificates(Base):
                 lambda elem: f'{elem.attrib["key"]}={elem.text}',
                 node.findall("table[@key='issuer']/elem")
             )),
-            'pubkey_type': get_text('pubkey', 'type'),
-            'pubkey_bits': get_text('pubkey', 'bits'),
-            'algorithm': get_text('sig_algo', allow_none=True),
+            'validNotBefore': not_before,
+            'validNotAfter': not_after,
+            'isValid': is_valid,
+            'expiresIn': expires_in,
+            'pubkeyType': get_text('pubkey', 'type'),
+            'pubkeyBits': get_text('pubkey', 'bits'),
             'md5': get_text('md5'),
             'sha1': get_text('sha1'),
-            'valid_not_before': datetime.strptime(
-                get_text('validity', 'notBefore')[:19],
-                '%Y-%m-%dT%H:%M:%S'
-            ),
-            'valid_not_after': not_after,
-            'expired': not_after < datetime.now(),
-            'expiresIn': (not_after - datetime.now()).total_seconds()
         }
-        dct.update(**cert_props_to_dict(
-            node,
-            "table[@key='subject']/elem",
-            'certificate_'
-        ))
-        dct.update(**cert_props_to_dict(
-            node,
-            "table[@key='issuer']/elem",
-            'issuer_'
-        ))
-        return dct
+        return response_data
 
     @staticmethod
-    def _parse_protocols(node, host, port):
-        '''
-        :param node: Element with ciphers list
-        :param host: hostname
-        :param port: scanned port
-        :return: tuple of dict of portocols and  dict of problems
-        '''
-        results = {}
-        problems = {}
+    def _parse_ciphers_info(node, host, port):
+        response_data = {}
         if node:
             for protocol in node.findall('table'):
-                key = '%s:%s-%s' % (host, port, protocol.attrib['key'])
                 ciphers = []
                 for cipher in protocol.findall("table[@key='ciphers']/table"):
                     name = cipher.find("elem[@key='name']").text
@@ -137,28 +82,16 @@ class CheckCertificates(Base):
                 for warning in protocol.findall("table[@key='warnings']/elem"):
                     warnings.append(warning.text)
 
-                results[key] = {
-                    'host': host,
-                    'port': port,
-                    'name': key,
-                    'protocol': protocol.attrib['key'],
+                name = f'{host}:{port}-{protocol.attrib["key"]}'
+                response_data[name] = {
+                    'name': f'{host}:{port}-{protocol.attrib["key"]}',
                     'ciphers': '\r\n'.join(ciphers),
                     'warnings': '\r\n'.join(warnings),
-                    'least_strength': node.find(
+                    'leastStrength': node.find(
                         "elem[@key='least strength']").text
                 }
 
-                if warnings:
-                    for warning in warnings:
-                        warning_key = host + '-' + warning.replace(' ', '_')
-                        if warning_key not in problems:
-                            problems[warning_key] = {
-                                'host': host,
-                                'port': port,
-                                'name': warning_key,
-                                'warning': warning
-                            }
-        return results, problems
+        return response_data
 
     @staticmethod
     def _parse_xml(data):
@@ -170,40 +103,18 @@ class CheckCertificates(Base):
         if '; 0 IP addresses' in summary:
             raise UnresolvableException(summary)
 
-        # this is often unreliable
-        # if '(0 hosts up)' in summary:
-        #     raise UnreachableException(summary)
         return root
-
-    @staticmethod
-    def _cmd(params, timeout=200):
-        """
-        call of shell command
-        :param params:
-        :return:
-        """
-        return subprocess.check_output(params, timeout=timeout)
 
     @classmethod
     def parse(cls, string, ip4):
-        '''
-        parse namap output to statedata using xml
-        :param string: xml output of nmap
-        :return:  normalized data
-        '''
-
         root = cls._parse_xml(string)
-        state_data = {
-            'ssl-services': {},
-            'ssl-enum-ciphers': {},
-            'ssl-problems': {}
-        }
+        ssl_cert = {}
+        ssl_enum_ciphers = {}
 
         for host in root.iter('host'):
-
             try:
                 hostname = host.find(
-                     # TODO shouldn't be @type='PTR' ??
+                    # TODO shouldn't be @type='PTR' ??
                     "hostnames/hostname[@type='user']").attrib['name']
             except Exception:
                 hostname = ip4
@@ -211,90 +122,61 @@ class CheckCertificates(Base):
             for port in host.iter('port'):
                 portid = port.attrib['portid']
 
-                service_name = port.find('service').attrib.get('name')
-
-                key = '%s:%s' % (hostname, portid)
-
-                ssl_service = cls._parse_cert_info(port.find(
-                    "script[@id='ssl-cert']"
-                ))
-                ssl_service['service'] = service_name
-                ssl_enum_ciphers, ssl_problems = cls._parse_protocols(
+                cert = cls._parse_cert_info(
+                    port.find("script[@id='ssl-cert']"),
+                    hostname,
+                    portid
+                )
+                enum_ciphers = cls._parse_ciphers_info(
                     port.find("script[@id='ssl-enum-ciphers']"),
                     hostname,
                     portid
                 )
-                ssl_service['protocols'] = []
-                strengths = []
 
-                for item in ssl_enum_ciphers.values():
-                    ssl_service['protocols'].append(item.get('protocol'))
-                    strengths.append(item.get('least_strength'))
-                if not ssl_service['protocols']:
-                    continue
-                ssl_service['least_strength'] = min(strengths) if strengths \
-                    else None
+                ssl_cert = {**ssl_cert, **cert}
+                ssl_enum_ciphers = {**ssl_enum_ciphers, **enum_ciphers}
 
-                ssl_service['protocols'] = ','.join(ssl_service['protocols'])
-                ssl_service['name'] = key
-                state_data['ssl-services'][key] = ssl_service
-                state_data['ssl-enum-ciphers'] = ssl_enum_ciphers
-                state_data['ssl-problems'] = ssl_problems
-
-        return state_data
+        return {
+            'sslCert': ssl_cert,
+            'sslEnumCiphers': ssl_enum_ciphers,
+        }
 
     @classmethod
-    def run_check(cls, ip4, ports):
-        params = ['nmap', '--script', '+ssl-cert,+ssl-enum-ciphers', '-oX',
-                  '-', '-vv', '-p %s' % ','.join(map(str, ports)), ip4]
-        err = ''
-        state_data = {}
-        try:
-            data = cls._cmd(params)
-            state_data = cls.parse(data, ip4)
-            if not state_data['ssl-services']:
-                raise Exception(
-                    'Checked Ports: {}'.format(' '.join(map(str, ports))))
+    async def run_check(
+        cls,
+        ip4,
+        check_certificate_ports=None
+    ):
+        if check_certificate_ports:
+            params = [
+                'nmap',
+                '--script',
+                '+ssl-cert,+ssl-enum-ciphers',
+                '-oX',
+                '-',
+                f"-p {','.join(map(str, check_certificate_ports))}",
+                ip4
+            ]
 
-
-        except subprocess.CalledProcessError as e:
-            err = 'Error: %s , %s' % (e.returncode, e.stderr)
-
-        except ET.ParseError as e:
-            err = 'Nmap output parsing error' % (e.msg)
-
-        except FileNotFoundError:
-            err = 'Nmap not installed in system'
-        framework = {}
-        framework['timestamp'] = int(time.time())
-        return check_response(
-            name=f'certificates {ip4} ({", ".join(map(str, ports))})',
-            state_data=state_data,
-            error=err,
-            framework=framework
-        )
-
-    @classmethod
-    async def get_data(cls, ip4, ports):
-        if ports:
-            data = None
+            response_data = {}
             try:
-                # TODO needs a asyncio.gather or asyncio wait to have any
-                # effect
-                async with SEMAPHORE:
-                    data = cls.run_check(ip4, ports)
-                print("DATA", data)
-            except Exception:
-                logging.exception('NMAP error\n')
-                raise
+                data = await cls.run_cmd(params)
+                response_data = cls.parse(data, ip4)
+                if not response_data['sslCert']:
+                    raise Exception(
+                        'Checked Ports: {}'.format(
+                            ' '.join(map(str, check_certificate_ports))))
 
-            try:
-                state = cls.get_result(data)
-            except Exception:
-                logging.exception('NMAP parse error\n')
-                raise
+            except subprocess.CalledProcessError as e:
+                raise Exception(f'Error: {e.returncode} , {e.stderr}')
 
-            return state
+            except ET.ParseError as e:
+                raise Exception(f'Nmap parse error: {e.msg}')
+
+            except FileNotFoundError:
+                raise Exception('Nmap not installed in system')
+
+            return response_data
         else:
             raise Exception(
                 'CheckCertificates did not run; no ports are provided')

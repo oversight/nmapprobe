@@ -1,7 +1,7 @@
 from .checkCertificates import CheckCertificates
-from .checkServices import CheckServices
+from .checkPorts import CheckPorts
 
 CHECKS = {
     'CheckCertificates': CheckCertificates,
-    'CheckServices': CheckServices
+    'CheckPorts': CheckPorts
 }

@@ -1,24 +1,14 @@
 import argparse
 import asyncio
-import os
+
 from agentcoreclient import AgentCoreClient
 from setproctitle import setproctitle
 from lib.check import CHECKS
 from lib.version import __version__
 
-# Migrate the nmap configuration and credentials
-# TODO ????
-def migrate_config_folder():
-    if os.path.exists('/data/config/OsNmapProbe'):
-        os.rename('/data/config/OsNmapProbe', '/data/config/nmapprobe')
-    if os.path.exists('/data/config/nmapprobe/defaultCredentials.ini'):
-        os.rename('/data/config/nmapprobe/defaultCredentials.ini',
-                  '/data/config/nmapprobe/defaultAssetConfig.ini')
 
 if __name__ == '__main__':
     setproctitle('nmapprobe')
-
-    migrate_config_folder()  # TODO what todo?
 
     parser = argparse.ArgumentParser()
 
