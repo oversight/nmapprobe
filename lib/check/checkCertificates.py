@@ -105,7 +105,7 @@ class CheckCertificates(Base):
         for host in root.iter('host'):
             try:
                 hostname = host.find(
-                    "hostnames/hostname").attrib['name']
+                    'hostnames/hostname').attrib['name']
             except Exception:
                 hostname = ip4
 
