@@ -8,13 +8,13 @@ from .exceptions import UnresolvableException
 
 
 def get_ts_from_time_str(time_str):
-    #  TODO UTC?
+    #  TODO UTC or not?
     return int(datetime.strptime(time_str,  '%Y-%m-%dT%H:%M:%S').timestamp())
 
 
 class CheckCertificates(Base):
 
-    interval = 3600  # TODO ???
+    interval = 3600  # TODO right interval???
     required = False
     type_name = 'certificates'
 
@@ -133,6 +133,7 @@ class CheckCertificates(Base):
                     portid
                 )
 
+                # TODO only add the ports that return a result?
                 ssl_cert = {**ssl_cert, **cert}
                 ssl_enum_ciphers = {**ssl_enum_ciphers, **enum_ciphers}
 

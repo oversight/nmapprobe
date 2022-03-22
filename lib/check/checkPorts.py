@@ -6,7 +6,7 @@ from .base import Base
 
 class CheckPorts(Base):
 
-    interval = 3600 * 24  # TODO ???
+    interval = 3600 * 24  # TODO right interval???
     required = True
     type_name = 'port'
 

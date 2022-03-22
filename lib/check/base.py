@@ -71,7 +71,7 @@ class Base:
 
         stdout, stderr = await process.communicate()
 
-        if process.returncode != 0:  # TODO err msg?
+        if process.returncode != 0:  # TODO err msg okay?
             raise Exception(
                 "Failed: %s, pid=%s, result: %s"
                 % (params, process.pid, stderr.decode().strip()),
