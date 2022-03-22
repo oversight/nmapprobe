@@ -10,7 +10,8 @@ SEMAPHORE = asyncio.Semaphore(value=DEFAULT_MAX_WORKERS)
 
 class Base:
     type_name = None
-    interval = 300  # interval is required, as it is used by agentcoreclient
+    # interval is required, as it is used by agentcoreclient
+    interval = 3600 * 4
     required = False
 
     @classmethod
@@ -54,7 +55,6 @@ class Base:
         data = {}
         try:
             data = await cls.run_check(*args, **kwargs)
-            print("DATA", data)
         except Exception as err:
             logging.exception(f'NMAP error: `{err}`\n')
             raise
@@ -71,10 +71,12 @@ class Base:
 
         stdout, stderr = await process.communicate()
 
-        if process.returncode != 0:  # TODO err msg okay?
+        if process.returncode != 0:
             raise Exception(
-                "Failed: %s, pid=%s, result: %s"
-                % (params, process.pid, stderr.decode().strip()),
+                (
+                    f'Failed: {params}, pid={process.pid}, '
+                    f'result: {stderr.decode().strip()}'
+                ),
                 flush=True,
             )
 

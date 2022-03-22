@@ -1,20 +1,13 @@
 import subprocess
 import xml.etree.ElementTree as ET
 
-from datetime import datetime
-
 from .base import Base
 from .exceptions import UnresolvableException
-
-
-def get_ts_from_time_str(time_str):
-    #  TODO UTC or not?
-    return int(datetime.strptime(time_str,  '%Y-%m-%dT%H:%M:%S').timestamp())
+from .utils import get_ts_from_time_str, get_ts_utc_now
 
 
 class CheckCertificates(Base):
 
-    interval = 3600  # TODO right interval???
     required = False
     type_name = 'certificates'
 
@@ -38,8 +31,8 @@ class CheckCertificates(Base):
             get_text('validity', 'notBefore')[:19])
         not_after = get_ts_from_time_str(
             get_text('validity', 'notAfter')[:19])
+        now = get_ts_utc_now()
 
-        now = int(datetime.now().timestamp())
         is_valid = not_before <= now <= not_after
         expires_in = not_after - now
 
@@ -76,7 +69,7 @@ class CheckCertificates(Base):
                     name = cipher.find("elem[@key='name']").text
                     strength = cipher.find("elem[@key='strength']").text
 
-                    ciphers.append('%s - %s' % (name, strength))
+                    ciphers.append(f'{name} - {strength}')
 
                 warnings = []
                 for warning in protocol.findall("table[@key='warnings']/elem"):
@@ -114,8 +107,7 @@ class CheckCertificates(Base):
         for host in root.iter('host'):
             try:
                 hostname = host.find(
-                    # TODO shouldn't be @type='PTR' ??
-                    "hostnames/hostname[@type='user']").attrib['name']
+                    "hostnames/hostname").attrib['name']
             except Exception:
                 hostname = ip4
 
@@ -133,7 +125,6 @@ class CheckCertificates(Base):
                     portid
                 )
 
-                # TODO only add the ports that return a result?
                 ssl_cert = {**ssl_cert, **cert}
                 ssl_enum_ciphers = {**ssl_enum_ciphers, **enum_ciphers}
 
@@ -164,9 +155,11 @@ class CheckCertificates(Base):
                 data = await cls.run_cmd(params)
                 response_data = cls.parse(data, ip4)
                 if not response_data['sslCert']:
-                    raise Exception(
-                        'Checked Ports: {}'.format(
-                            ' '.join(map(str, check_certificate_ports))))
+                    raise Exception((
+                        'Checked Ports: '
+                        f"{' '.join(map(str, check_certificate_ports))}"
+
+                    ))
 
             except subprocess.CalledProcessError as e:
                 raise Exception(f'Error: {e.returncode} , {e.stderr}')

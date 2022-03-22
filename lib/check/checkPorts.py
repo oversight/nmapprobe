@@ -6,7 +6,6 @@ from .base import Base
 
 class CheckPorts(Base):
 
-    interval = 3600 * 24  # TODO right interval???
     required = True
     type_name = 'port'
 
@@ -52,7 +51,7 @@ class CheckPorts(Base):
                 # default = 7
                 "-oX",
                 "-",
-                '-p %s' % ','.join(map(str, check_ports)),
+                f"-p {','.join(map(str, check_ports))}",
                 ip4
             ]
             response_data = {}
@@ -61,13 +60,13 @@ class CheckPorts(Base):
                 response_data[cls.type_name] = cls.parse(data)
 
             except subprocess.CalledProcessError as e:
-                raise Exception("Error: %s , %s" % (e.returncode, e.stderr))
+                raise Exception(f'Error: {e.returncode} , {e.stderr}')
 
             except ET.ParseError as e:
-                raise Exception("Nmap output parsing error" % e.msg)
+                raise Exception(f'Nmap output parsing error: {e.msg}')
 
             except FileNotFoundError:
-                raise Exception("Nmap not installed in system")
+                raise Exception('Nmap not installed in system')
 
             except Exception:
                 raise
