@@ -1,17 +1,14 @@
 import argparse
 import asyncio
-import os
+
 from agentcoreclient import AgentCoreClient
 from setproctitle import setproctitle
 from lib.check import CHECKS
 from lib.version import __version__
 
 
-
 if __name__ == '__main__':
     setproctitle('nmapprobe')
-
-    migrate_config_folder()
 
     parser = argparse.ArgumentParser()
 
