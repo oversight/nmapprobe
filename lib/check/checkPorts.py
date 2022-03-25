@@ -29,7 +29,7 @@ class CheckPorts(Base):
         return response_data
 
     @classmethod
-    async def run_check(cls, ip4, check_ports=None):
+    async def run_check(cls, ip4, check_ports=None, **_kwargs):
         if check_ports:
             params = [
                 'nmap',

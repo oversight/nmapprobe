@@ -135,7 +135,8 @@ class CheckCertificates(Base):
     async def run_check(
         cls,
         ip4,
-        check_certificate_ports=None
+        check_certificate_ports=None,
+        **_kwargs
     ):
         if check_certificate_ports:
             params = [
