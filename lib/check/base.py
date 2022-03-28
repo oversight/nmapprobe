@@ -44,7 +44,7 @@ class Base:
                     ),
                     timeout=max_runtime
                 )
-            except IgnoreResultExceptionas as e:
+            except IgnoreResultException as e:
                 raise
             except asyncio.TimeoutError:
                 raise Exception('Check timed out.')
