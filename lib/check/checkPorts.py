@@ -1,5 +1,6 @@
 import subprocess
 import xml.etree.ElementTree as ET
+from agentcoreclient import IgnoreResultException
 
 from .base import Base
 
@@ -72,5 +73,5 @@ class CheckPorts(Base):
 
             return response_data
         else:
-            raise Exception(
+            raise IgnoreResultException(
                 'checkPorts did not run; no ports are provided')

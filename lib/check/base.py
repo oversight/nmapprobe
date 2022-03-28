@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from agentcoreclient import IgnoreResultException
 
 from .ports import DEFAULT_SSL_PORTS
 
@@ -24,7 +25,7 @@ class Base:
             check_certificate_ports = config.get(
                 'checkCertificatePorts',
                 DEFAULT_SSL_PORTS)
-            check_ports = config.get('checkPorts', None)
+            check_ports = config.get('checkPorts', [])
             interval = data.get('checkConfig', {}).get('metaConfig', {}).get(
                 'checkInterval')
             assert interval is None or isinstance(interval, int)
@@ -43,6 +44,8 @@ class Base:
                     ),
                     timeout=max_runtime
                 )
+            except IgnoreResultExceptionas as e:
+                raise
             except asyncio.TimeoutError:
                 raise Exception('Check timed out.')
             except Exception as e:
