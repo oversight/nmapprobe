@@ -37,7 +37,7 @@ class Base:
             max_runtime = 60  # 60 seconds
             try:
                 state_data = await asyncio.wait_for(
-                    cls.get_data(
+                    cls.run_check(
                         ip4,
                         check_certificate_ports=check_certificate_ports,
                         check_ports=check_ports
@@ -52,17 +52,6 @@ class Base:
                 raise Exception(f'Check error: {e.__class__.__name__}: {e}')
             else:
                 return state_data
-
-    @classmethod
-    async def get_data(cls, *args, **kwargs):
-        data = {}
-        try:
-            data = await cls.run_check(*args, **kwargs)
-        except Exception as err:
-            logging.exception(f'NMAP error: `{err}`\n')
-            raise
-
-        return data
 
     @staticmethod
     async def run_cmd(params):
