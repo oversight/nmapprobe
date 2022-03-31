@@ -20,7 +20,7 @@ class Base:
         try:
             # If asset_id is needed in future; uncomment next line:
             # asset_id = data['hostUuid']
-            config = data['hostConfig']['probeConfig']['wmiProbe']
+            config = data['hostConfig']['probeConfig']['nmapProbe']
             ip4 = config['ip4']
             check_certificate_ports = config.get(
                 'checkCertificatePorts',
