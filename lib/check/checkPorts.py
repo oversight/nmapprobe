@@ -24,7 +24,7 @@ class CheckPorts(Base):
                     'name': name,  # (str)
                     'state': state.attrib['state'],  # (str)
                     'reason': state.attrib['reason'],  # (str)
-                    'reason_ttl': int(state.attrib['reason_ttl'])  # (int)
+                    'reasonTTL': int(state.attrib['reason_ttl'])  # (int)
                 }
 
         return response_data
