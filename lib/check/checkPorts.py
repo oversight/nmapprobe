@@ -1,3 +1,4 @@
+import logging
 import subprocess
 import xml.etree.ElementTree as ET
 from agentcoreclient import IgnoreResultException
@@ -33,6 +34,7 @@ class CheckPorts(Base):
 
     @classmethod
     async def run_check(cls, ip4, check_ports=None, **_kwargs):
+        logging.debug(f'run ports check: {ip4} ports: {check_ports}')
         if check_ports:
             params = [
                 'nmap',

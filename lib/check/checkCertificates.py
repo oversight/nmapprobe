@@ -1,3 +1,4 @@
+import logging
 import subprocess
 import xml.etree.ElementTree as ET
 
@@ -140,6 +141,8 @@ class CheckCertificates(Base):
         check_certificate_ports=None,
         **_kwargs
     ):
+        logging.debug(
+            f'run certificate check: {ip4} ports: {check_certificate_ports}')
         if check_certificate_ports:
             params = [
                 'nmap',

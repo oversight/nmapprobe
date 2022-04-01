@@ -28,6 +28,10 @@ class Base:
             check_ports = config.get('checkPorts', [])
             interval = data.get('checkConfig', {}).get('metaConfig', {}).get(
                 'checkInterval')
+            assert isinstance(check_certificate_ports, list) and \
+                all(isinstance(x, int) for x in check_certificate_ports)
+            assert isinstance(check_ports, list) and \
+                all(isinstance(x, int) for x in check_ports)
             assert interval is None or isinstance(interval, int)
         except Exception as e:
             logging.error(
