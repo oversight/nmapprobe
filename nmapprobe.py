@@ -25,6 +25,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    AgentCoreClient.setup_logger(args.log_level, args.log_colorized)
+
     cl = AgentCoreClient(
         'nmapProbe',
         __version__,
@@ -32,8 +34,6 @@ if __name__ == '__main__':
         None,
         '/data/config/nmapprobe/nmapProbe-config.json'
     )
-
-    cl.setup_logger(args.log_level, args.log_colorized)
 
     asyncio.get_event_loop().run_until_complete(
         cl.connect_loop()
