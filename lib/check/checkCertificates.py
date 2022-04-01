@@ -171,5 +171,5 @@ class CheckCertificates(Base):
 
             return response_data
         else:
-            raise Exception(
+            raise IgnoreResultException(
                 'CheckCertificates did not run; no ports are provided')

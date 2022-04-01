@@ -6,7 +6,7 @@ from .base import Base
 
 
 class CheckPorts(Base):
-    required = True
+    required = False
     type_name = 'port'
 
     @staticmethod
@@ -74,4 +74,4 @@ class CheckPorts(Base):
             return response_data
         else:
             raise IgnoreResultException(
-                'checkPorts did not run; no ports are provided')
+                'CheckPorts did not run; no ports are provided')
