@@ -6,8 +6,10 @@ from .base import Base
 
 
 class CheckPorts(Base):
-    required = False
+
     type_name = 'port'
+    required = False
+    interval = 300
 
     @staticmethod
     def parse(data):

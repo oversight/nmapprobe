@@ -11,8 +11,8 @@ SEMAPHORE = asyncio.Semaphore(value=DEFAULT_MAX_WORKERS)
 
 class Base:
     type_name = None
-    # interval is required, as it is used by agentcoreclient
-    interval = 3600 * 4
+
+    interval = 300
     required = False
 
     @classmethod

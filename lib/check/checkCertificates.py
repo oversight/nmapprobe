@@ -7,7 +7,9 @@ from .utils import get_ts_from_time_str, get_ts_utc_now
 
 
 class CheckCertificates(Base):
+
     required = False
+    interval = 3600 * 4
 
     @staticmethod
     def _parse_cert_info(node, host, port):
