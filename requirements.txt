@@ -1,2 +1,2 @@
-agentcoreclient==0.1.7
+agentcoreclient==0.1.8
 setproctitle==1.2.2
