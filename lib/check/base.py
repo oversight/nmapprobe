@@ -29,8 +29,9 @@ class Base:
             interval = data.get('checkConfig', {}).get('metaConfig', {}).get(
                 'checkInterval')
             assert interval is None or isinstance(interval, int)
-        except Exception:
-            logging.error('invalid check configuration')
+        except Exception as e:
+            logging.error(
+                f'invalid check configuration: {e.__class__.__name__}: {e}')
             return
 
         async with SEMAPHORE:
